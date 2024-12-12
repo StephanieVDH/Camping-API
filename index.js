@@ -22,8 +22,8 @@ app.get('/', (req, res) => {
   res.send('Hello World!');
 });
 
-// Endpoints voor user management
-//1. Nieuwe user registreren
+// Endpoints voor USER ACCOUNTS
+    //1. Nieuwe user registreren
 app.post('/api/users', (req, res) => {
     console.log(req.body);
     const { name } = req.body;
@@ -35,38 +35,96 @@ app.post('/api/users', (req, res) => {
         .catch((error) => res.status(500).send({ error: 'Failed to create account', details: error }));
   });
 
-//2. User inloggen
+// Endpoints voor CAMPINGSPOTS
+    //1. Create campingspot
+app.post('/api/campingspots', (req, res) => {
+    console.log(req.body);
+    const { name } = req.body;
+    const db = new Database();
+    console.log(name);
+    db.getQuery('INSERT INTO CampingSpot (Name, Description, Location, Latitude, Longitude, Size, OwnerID) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      , [name])
+        .then(() => res.status(201).send({ message: 'Campingspot was succesfully added' }))
+        .catch((error) => res.status(500).send({ error: 'Failed to create new campingspot', details: error }));
+  });
+
+    //2. Show all campingspots --> endpoint getest = OK
+app.get('/api/campingspots', (req, res) => {
+    const db = new Database();
+    db.getQuery('SELECT * FROM CampingSpot').then((campingspots) => {
+        res.send(campingspots);
+    });
+});
+
+// Endpoints voor AMENITIES
+
+
+// Endpoints voor BOOKING
+    //1. Booking
+app.post('/api/bookings', (req, res) => {
+    console.log(req.body);
+    const { name } = req.body;
+    const db = new Database();
+    console.log(name);
+    db.getQuery('INSERT INTO Booking (StartDate, EndDate, TotalPrice, Status, PaymentStatus, CampingSpotID, UserID) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      , [name])
+        .then(() => res.status(201).send({ message: 'Thanks for your booking, current status: pending' }))
+        .catch((error) => res.status(500).send({ error: 'Oops, something went wrong.', details: error }));
+});
+
+    //2. Bookings per user laten zien
+app.get('/api/bookings', (req, res) => {
+    const db = new Database();
+    db.getQuery('SELECT * FROM Booking WHERE UserID = ?').then((bookings) => {
+        res.send(bookings);
+    });
+});
+
+    //3. Booking details van specifieke booking laten zien
+app.get('/api/bookings', (req, res) => {
+    const db = new Database();
+    db.getQuery('SELECT * FROM Booking WHERE ID = ?').then((bookings) => {
+        res.send(bookings);
+    });
+});
+
+
+// Endpoints voor MESSAGES
+
+
+// Endpoints voor REVIEWS
+    //1. Nieuwe review plaatsen
+app.post('/api/reviews', (req, res) => {
+    console.log(req.body);
+    const { name } = req.body;
+    const db = new Database();
+    console.log(name);
+    db.getQuery('INSERT INTO Review (Rating, Review, UserID, CampingSpotID) VALUES (?, ?, ?, ?)'
+      , [name])
+        .then(() => res.status(201).send({ message: 'Thanks for your review!' }))
+        .catch((error) => res.status(500).send({ error: 'Oops, something went wrong.', details: error }));
+});
+
+    //2. Reviews per campingspot laten zien
+app.get('/api/reviews', (req, res) => {
+    const db = new Database();
+    db.getQuery('SELECT * FROM Review WHERE CampingSpotID = ?;').then((reviews) => {
+        res.send(reviews);
+    });
+});
 
 
 
-// Endpoints voor campingspots
-  
-
-// Endpoints voor amenities
-
-// Endpoints voor booking
-
-// Endpoints voor messages
-
-// Endpoints voor reviews
 
 
 
 
 
-
-
+// Blabla van eurosong api
 app.get('/api/artists', (req, res) => {
     const db = new Database();
     db.getQuery('SELECT * FROM artists').then((artists) => {
         res.send(artists);
-    });
-});
-
-app.get('/api/votes', (req, res) => {
-    const db = new Database();
-    db.getQuery('SELECT * FROM votes').then((votes) => {
-        res.send(votes);
     });
 });
 
@@ -132,7 +190,7 @@ app.post('/api/votes', (req, res) => {
         .catch((error) => res.status(500).send({ error: 'Failed to add vote', details: error }));
 });
 
-// Starten van de server en op welke port de server moet luistere
+// Starten van de server en op welke port de server moet luisteren, NIET VERWIJDEREN
 app.listen(3000, () => {
   console.log('Server is running on port 3000');
 });
