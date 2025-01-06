@@ -9,7 +9,7 @@ const app = express();
 
 // Enable CORS
 app.use(cors({
-    origin: 'http://localhost:3306', // Allow requests from this origin
+    origin: 'http://localhost:8080', // Allow requests from this origin
     methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
     allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
 }));
@@ -44,7 +44,7 @@ app.post('/api/campingspots', (req, res) => {
     console.log(name);
     db.getQuery('INSERT INTO CampingSpot (Name, Description, Location, Latitude, Longitude, Size, OwnerID) VALUES (?, ?, ?, ?, ?, ?, ?)'
       , [name])
-        .then(() => res.status(201).send({ message: 'Campingspot was succesfully added' }))
+        .then(() => res.status(201).send({ message: 'Campingspot was added succesfully' }))
         .catch((error) => res.status(500).send({ error: 'Failed to create new campingspot', details: error }));
   });
 
@@ -105,13 +105,13 @@ app.post('/api/reviews', (req, res) => {
         .catch((error) => res.status(500).send({ error: 'Oops, something went wrong.', details: error }));
 });
 
-    //2. Reviews per campingspot laten zien
+    //2. Reviews per campingspot laten zien 
 app.get('/api/reviews', (req, res) => {
     const db = new Database();
-    db.getQuery('SELECT * FROM Review WHERE CampingSpotID = ?;').then((reviews) => {
+    db.getQuery('SELECT * FROM Review WHERE CampingSpotID = ?').then((reviews) => {
         res.send(reviews);
     });
-});
+}); 
 
 
 
