@@ -35,6 +35,36 @@ app.post('/api/users', (req, res) => {
         .catch((error) => res.status(500).send({ error: 'Failed to create account', details: error }));
   });
 
+  app.post('/api/login', (req, res) => {
+    const { email, password } = req.body;
+    const db = new Database();
+    
+    db.getQuery('SELECT * FROM User WHERE Email = ?', [email])
+      .then((users) => {
+        if (users.length === 0) {
+          return res.status(401).send({ error: 'Invalid email or password' });
+        }
+        
+        const user = users[0];
+        
+        // Compare passwords
+        if (user.Password !== password) {  // Note: using user.Password instead of User.Password
+          return res.status(401).send({ error: 'Invalid email or password' });
+        }
+        
+        // Successful login response
+        res.status(200).send({
+          message: 'Login successful',
+          userId: user.ID,          // Changed from UserId to match your frontend
+          userType: user.UserType   // Changed from Role to match your database schema
+        });
+      })
+      .catch((error) => {
+        console.error('Login error:', error); // Add error logging
+        res.status(500).send({ error: 'Failed to log in', details: error });
+      });
+  });
+
 // Endpoints voor CAMPINGSPOTS
     //1. Create campingspot
 app.post('/api/campingspots', (req, res) => {
