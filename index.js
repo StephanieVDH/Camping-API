@@ -42,7 +42,7 @@ app.post('/api/campingspots', (req, res) => {
     const { name } = req.body;
     const db = new Database();
     console.log(name);
-    db.getQuery('INSERT INTO CampingSpot (Name, Description, Location, Latitude, Longitude, Size, OwnerID) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    db.getQuery('INSERT INTO CampingSpot (Name, ShortDescription, LongDescription, Location, Latitude, Longitude, Size, Price, OwnerID, CreatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       , [name])
         .then(() => res.status(201).send({ message: 'Campingspot was added succesfully' }))
         .catch((error) => res.status(500).send({ error: 'Failed to create new campingspot', details: error }));
@@ -55,6 +55,66 @@ app.get('/api/campingspots', (req, res) => {
         res.send(campingspots);
     });
 });
+
+    //3. Show 1 specific campingspot
+// app.get('/api/campingspots/:ID', (req, res) => {
+//     const { ID } = req.params;
+//     console.log('Requested ID:', ID);
+//     const db = new Database();
+  
+//     db.getQuery('SELECT * FROM CampingSpot WHERE ID = ?', [ID])
+//       .then((campingspot) => {
+//         console.log('Query result:', campingspot);
+//         if (campingspot.length > 0) {
+//           res.send(campingspot[0]); // Return the first (and only) result
+//         } else {
+//           res.status(404).send({ error: 'Camping spot not found' });
+//         }
+//       })
+//       .catch((error) => {
+//         res.status(500).send({ error: 'Failed to fetch campingspot', details: error });
+//       });
+//   });
+
+app.get('/api/campingspots/:id', (req, res) => {
+    const { id } = req.params;
+    console.log('Requested ID:', id);  // Debug log
+  
+    const db = new Database();
+    // Modified query to verify table name and column names
+    const query = `
+      SELECT 
+        cs.ID,
+        cs.Name,
+        cs.ShortDescription,
+        cs.LongDescription,
+        cs.Location,
+        cs.Latitude,
+        cs.Longitude,
+        cs.Size,
+        cs.Price,
+        cs.OwnerID,
+        cs.CreatedAt
+      FROM CampingSpot cs
+      WHERE cs.ID = ?
+    `;
+  
+    db.getQuery(query, [id])
+      .then((campingspot) => {
+        console.log('Query result:', campingspot);  // Debug log
+        if (campingspot.length > 0) {
+          res.send(campingspot[0]);
+        } else {
+          res.status(404).send({ error: 'Camping spot not found' });
+        }
+      })
+      .catch((error) => {
+        console.error('Database error:', error);  // Debug log
+        res.status(500).send({ error: 'Failed to fetch campingspot', details: error });
+      });
+  });
+
+
 
 // Endpoints voor AMENITIES
 
@@ -112,83 +172,6 @@ app.get('/api/reviews', (req, res) => {
         res.send(reviews);
     });
 }); 
-
-
-
-
-
-
-
-
-// Blabla van eurosong api
-app.get('/api/artists', (req, res) => {
-    const db = new Database();
-    db.getQuery('SELECT * FROM artists').then((artists) => {
-        res.send(artists);
-    });
-});
-
-app.get('/api/songs', (req, res) => {
-    const db = new Database();
-    db.getQuery(`
-        SELECT
-            song_id, s.name AS songname, a.name AS artistname
-        FROM
-            songs AS s
-                INNER JOIN
-                    artists AS a
-                        ON
-                            s.artist_id = a.artist_id;
-    `).then((songs) => {
-        res.send(songs);
-    });
-});
-
-app.get('/api/ranking', (req, res) => {
-    const db = new Database();
-    db.getQuery(`
-        SELECT songs.song_id, songs.name AS song_name, artists.name AS artist_name, SUM(points) AS total_points
-        FROM
-            votes
-                INNER JOIN
-                    songs
-                        ON songs.song_id = votes.song_id
-                INNER JOIN
-                    artists
-                        ON songs.artist_id = artists.artist_id
-        GROUP BY song_id
-        ORDER BY SUM(points) DESC;
-    `).then((ranking) => {
-        res.send(ranking);
-    });
-});
-
-app.post('/api/artists', (req, res) => {
-    console.log(req.body);
-    const { name } = req.body;
-    const db = new Database();
-    console.log(name);
-    db.getQuery('INSERT INTO artists (name) VALUES (?)', [name])
-        .then(() => res.status(201).send({ message: 'Artist added successfully' }))
-        .catch((error) => res.status(500).send({ error: 'Failed to add artist', details: error }));
-});
-
-app.post('/api/songs', (req, res) => {
-    const { name, artist_id } = req.body;
-    const db = new Database();
-    db.getQuery('INSERT INTO songs (name, artist_id) VALUES (?, ?)', [name, artist_id])
-        .then(() => res.status(201).send({ message: 'Song added successfully' }))
-        .catch((error) => res.status(500).send({ error: 'Failed to add song', details: error }));
-});
-
-// POST endpoint om een nieuwe stem toe te voegen
-app.post('/api/votes', (req, res) => {
-    const { song_id, points } = req.body;
-    const db = new Database();
-    db.getQuery('INSERT INTO votes (song_id, points) VALUES (?, ?)', [song_id, points])
-        .then(() => res.status(201).send({ message: 'Vote added successfully' }))
-        .catch((error) => res.status(500).send({ error: 'Failed to add vote', details: error }));
-});
 
 // Starten van de server en op welke port de server moet luisteren, NIET VERWIJDEREN
 app.listen(3000, () => {
