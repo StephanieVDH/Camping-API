@@ -7,7 +7,18 @@ const multer = require('multer');
 
 // Aanmaken van een express app
 const app = express();
-const upload = multer({dest: 'uploads/'});
+const upload = multer({
+  dest: 'uploads/', // Ensure this directory exists
+  storage: multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, 'uploads/'); // Ensure this directory exists
+    },
+    filename: function (req, file, cb) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, uniqueSuffix + '-' + file.originalname);
+    }
+  })
+});
 
 // Enable CORS
 app.use(cors({
@@ -20,7 +31,13 @@ app.use(cors({
 app.use(bodyParser.json());
 
 app.post('/upload', upload.single('file'), (req, res) => {
-  res.send({ message: 'File uploaded successfully!', filePath: req.file.path });
+  if (!req.file) {
+    return res.status(400).send({ error: 'No file uploaded' });
+  }
+  res.send({
+    message: 'File uploaded successfully!',
+    filePath: req.file.path,
+  });
 });
 
 // Endpoints
@@ -30,16 +47,37 @@ app.get('/', (req, res) => {
 
 // Endpoints voor USER ACCOUNTS
     //1. Nieuwe user registreren
-app.post('/api/users', (req, res) => {
-    console.log(req.body);
-    const { name } = req.body;
-    const db = new Database();
-    console.log(name);
-    db.getQuery('INSERT INTO User (UserType, Username, DateOfBirth, Email, Password, PhoneNumber, ProfilePicture) VALUES(?, ?, ?, ?, ?, ?, ?)'
-      , [name])
-        .then(() => res.status(201).send({ message: 'Account created succesfully' }))
-        .catch((error) => res.status(500).send({ error: 'Failed to create account', details: error }));
-  });
+app.post('/api/create-account', (req, res) => {
+  console.log(req.body); // Log incoming data
+  const { username, email, phonenumber, password, dateOfBirth, userType } = req.body;
+  // Validate required fields
+  if (!username || !email || !phonenumber || !password || !dateOfBirth || !userType) {
+    return res.status(400).send({ error: 'All fields are required.' });
+  }
+  const db = new Database(); // Create a new database instance
+  // SQL query for inserting a new user
+  const query = `
+    INSERT INTO User (Username, Email, PhoneNumber, Password, DateOfBirth, UserType) 
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+
+  // Execute the query
+  db.getQuery(query, [username, email, phonenumber, password, dateOfBirth, userType])
+    .then(() => {
+      res.status(201).send({ message: 'Account created successfully!' });
+    })
+    .catch((err) => {
+      console.error('Error creating account:', err);
+
+      // Handle duplicate email error
+      if (err.code === 'ER_DUP_ENTRY') {
+        return res.status(400).send({ error: 'Email already exists.' });
+      }
+
+      res.status(500).send({ error: 'Failed to create account.', details: err });
+    });
+});
+
 
     //2. User inloggen
   app.post('/api/login', (req, res) => {
@@ -154,15 +192,71 @@ app.post('/api/users', (req, res) => {
 
 // Endpoints voor CAMPINGSPOTS
     //1. Create campingspot
-app.post('/api/campingspots', (req, res) => {
-    console.log(req.body);
-    const { name } = req.body;
-    const db = new Database();
-    console.log(name);
-    db.getQuery('INSERT INTO CampingSpot (Name, ShortDescription, LongDescription, Location, Latitude, Longitude, Size, Price, OwnerID, CreatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-      , [name])
-        .then(() => res.status(201).send({ message: 'Campingspot was added succesfully' }))
-        .catch((error) => res.status(500).send({ error: 'Failed to create new campingspot', details: error }));
+// app.post('/api/campingspots', (req, res) => {
+//     console.log(req.body);
+//     const { name } = req.body;
+//     const db = new Database();
+//     console.log(name);
+//     db.getQuery('INSERT INTO CampingSpot (Name, ShortDescription, LongDescription, Location, Latitude, Longitude, Size, Price, OwnerID, CreatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+//       , [name])
+//         .then(() => res.status(201).send({ message: 'Campingspot was added succesfully' }))
+//         .catch((error) => res.status(500).send({ error: 'Failed to create new campingspot', details: error }));
+//   });
+
+    //1. Create campingspot
+    app.post('/api/campingspots', upload.array('pictures'), (req, res) => {
+      const db = new Database();
+      let spotID;
+  
+      // Extract spot details from the request body
+      const { name, shortDescription, longDescription, location, size, price, amenities } = req.body;
+  
+      // Start a database transaction
+      db.beginTransaction()
+          .then(() => {
+              // Insert the new camping spot
+              const insertSpotQuery = `
+                  INSERT INTO CampingSpot (Name, ShortDescription, LongDescription, Location, Size, Price, OwnerID)
+                  VALUES (?, ?, ?, ?, ?, ?, ?)`;
+              const ownerID = req.user.id; // Assuming user info is attached to req.user
+              return db.executeQuery(insertSpotQuery, [name, shortDescription, longDescription, location, size, price, ownerID]);
+          })
+          .then((result) => {
+              const spotID = result.insertId;
+  
+              // Insert selected amenities
+              const amenitiesArray = JSON.parse(amenities);
+              if (amenitiesArray && amenitiesArray.length > 0) {
+                  const amenitiesData = amenitiesArray.map(amenityID => [spotID, amenityID]);
+                  const insertAmenitiesQuery = `
+                      INSERT INTO AmenitiesPerCampingspot (CampingSpotID, AmenityID)
+                      VALUES ?`;
+                  return db.executeQuery(insertAmenitiesQuery, [amenitiesData]);
+              }
+              return Promise.resolve(); // Return resolved promise if no amenities
+          })
+          .then(() => {
+              // Handle picture uploads
+              const picturePromises = req.files.map((file) => {
+                  const insertPictureQuery = `
+                      INSERT INTO Picture (PictureURL, CampingSpotID)
+                      VALUES (?, ?)`;
+                  return db.executeQuery(insertPictureQuery, [file.path, spotID]);
+              });
+              return Promise.all(picturePromises);
+          })
+          .then(() => {
+              // Commit the transaction
+              return db.commitTransaction();
+          })
+          .then(() => {
+              res.status(201).send({ message: 'Spot added successfully!' });
+          })
+          .catch((err) => {
+              console.error('Error adding spot:', err);
+              db.rollbackTransaction();
+              res.status(500).send({ error: 'Failed to add spot' });
+          });
   });
 
     //2. Show all campingspots --> endpoint getest = OK
@@ -237,7 +331,7 @@ app.get('/api/campingspots/:id', (req, res) => {
   //1. Show all amenities
 app.get('/api/amenities', (req, res) => {
   const db = new Database();
-  db.getQuery('SELECT * FROM Amenity')
+  db.getQuery('SELECT ID as id, Name as name FROM Amenity')
       .then((amenities) => {
           res.send(amenities);
       })
